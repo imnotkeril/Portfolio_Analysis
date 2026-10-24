@@ -1,59 +1,18 @@
-altair >= 5.5.0
-attrs >= 25.3.0
-beautifulsoup4 >= 4.13.3
-blinker >= 1.9.0
-cachetools >= 5.5.2
-certifi >= 2025.1.31
-charset-normalizer >= 3.4.1
-click >= 8.1.8
-colorama >= 0.4.6
-contourpy >= 1.3.1
-cycler >= 0.12.1
-fonttools >= 4.57.0
-frozendict >= 2.4.6
-gitdb >= 4.0.12
-gitpython >= 3.1.44
-idna >= 3.10
-jinja2 >= 3.1.6
-jsonschema >= 4.23.0
-jsonschema-specifications >= 2024.10.1
-kiwisolver >= 1.4.8
-markupsafe >= 3.0.2
-matplotlib >= 3.10.1
-multitasking >= 0.0.11
-narwhals >= 1.33.0
-numpy >= 2.2.4
-packaging >= 24.2
-pandas >= 2.2.3
-peewee >= 3.17.9
-pillow >= 11.1.0
-platformdirs >= 4.3.7
-plotly >= 6.0.1
-protobuf >= 5.29.4
-pyarrow >= 19.0.1
-pydeck >= 0.9.1
-pyparsing >= 3.2.3
-python-dateutil >= 2.9.0.post0
-pytz >= 2025.2
-referencing >= 0.36.2
-requests >= 2.32.3
-rpds-py >= 0.24.0
-scipy >= 1.15.2
-seaborn >= 0.13.2
-six >= 1.17.0
-smmap >= 5.0.2
-soupsieve >= 2.6
-streamlit >= 1.44.1
-tenacity >= 9.1.2
-toml >= 0.10.2
-tornado >= 6.4.2
-typing-extensions >= 4.13.1
-tzdata >= 2025.2
-urllib3 >= 2.3.0
-watchdog >= 6.0.0
-yfinance >= 0.2.55
-python-dotenv >= 1.0.0
-fastapi >= 0.115.0
-uvicorn[standard] >= 0.32.0
-pydantic >= 2.0.0
-python-multipart >= 0.0.9
+# Runtime dependencies, pinned to the versions verified in Docker (python:3.12).
+# Transitive packages are resolved by pip; for a full lock use `pip freeze` in the built image.
+streamlit==1.66.1
+pandas==3.1.0
+numpy==2.4.6
+scipy==1.17.1
+plotly==7.1.0
+matplotlib==3.11.2
+seaborn==0.13.2
+yfinance==1.7.0
+requests==2.34.2
+beautifulsoup4==4.15.0
+lxml==6.1.3
+python-dotenv==1.2.4
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+python-multipart==0.0.32
