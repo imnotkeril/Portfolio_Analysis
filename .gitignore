@@ -23,3 +23,12 @@ Thumbs.db
 .venv1/
 
 env
+
+# env files (keep the example)
+.env
+.env.*
+!.env.example
+
+# virtualenvs
+.venv/
+venv/
