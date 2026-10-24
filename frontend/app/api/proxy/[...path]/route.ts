@@ -4,6 +4,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const UPSTREAM = (process.env.API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+// Server-side only: never exposed to the browser.
+const API_KEY = process.env.API_KEY || "";
 
 function targetUrl(req: NextRequest, segments: string[]) {
   const u = new URL(req.url);
@@ -16,6 +18,7 @@ async function proxy(req: NextRequest, segments: string[]) {
   const h = new Headers();
   const ct = req.headers.get("content-type");
   if (ct) h.set("content-type", ct);
+  if (API_KEY) h.set("x-api-key", API_KEY);
   const accept = req.headers.get("accept");
   if (accept) h.set("accept", accept);
 
