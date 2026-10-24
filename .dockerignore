@@ -7,3 +7,10 @@ frontend/node_modules
 frontend/.next
 **/.env
 *.md
+**/.env
+.env*
+env
+tests
+docs
+.claude
+.cursor

@@ -12,7 +12,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src ./src
 COPY api ./api
 
+RUN useradd --create-home --uid 1000 app \
+    && mkdir -p /app/src/data \
+    && chown -R app:app /app
+USER app
+
 ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
