@@ -23,6 +23,7 @@ from src.utils.visualization import PortfolioVisualization
 import src.config as config
 from src.utils.historical_context import historical_crisis_context, display_historical_context
 from src.utils.advanced_visualizations import create_stress_impact_heatmap, create_interactive_stress_impact_chart, create_risk_tree_visualization
+from src.services.analysis_service import load_portfolio_data
 
 
 def get_delta_color(metric_name: str, portfolio_value: float, benchmark_value: float) -> str:
@@ -75,65 +76,6 @@ def style_dataframe(df, precision_dict=None):
 
     return styled_df
 
-
-def load_portfolio_data(data_fetcher, tickers, start_date_str, end_date_str, benchmark=None):
-    """
-    Loads historical data for a list of tickers and a benchmark
-
-    Args:
-        data_fetcher: DataFetcher instance
-        tickers: List of tickers
-        start_date_str: Start date as a string
-        end_date_str: End date as a string
-        benchmark: Benchmark ticker (optional)
-
-    Returns:
-        Tuple with (close_prices, returns, valid_tickers, benchmark_returns, prices_data)
-    """
-
-    # Add benchmark to the list of tickers for download
-    if benchmark and benchmark not in tickers:
-        tickers_to_load = tickers + [benchmark]
-    else:
-        tickers_to_load = tickers
-
-    # Loading historical prices for all assets
-    prices_data = data_fetcher.get_batch_data(tickers_to_load, start_date_str, end_date_str)
-
-    # Check that the data was loaded successfully
-    if not prices_data or all(df.empty for df in prices_data.values()):
-        raise ValueError("Failed to load historical data. Please check tickers or change period..")
-
-    # Create a DataFrame with closing prices
-    close_prices = pd.DataFrame()
-
-    for ticker, df in prices_data.items():
-        if not df.empty:
-            if 'Adj Close' in df.columns:
-                close_prices[ticker] = df['Adj Close']
-            elif 'Close' in df.columns:
-                close_prices[ticker] = df['Close']
-
-    # Calculating return
-    returns = PortfolioAnalytics.calculate_returns(close_prices)
-
-    # Filter tickers that are in the data
-    valid_tickers = [t for t in tickers if t in returns.columns]
-
-    # If not all tickers are found, we issue a warning
-    if len(valid_tickers) < len(tickers):
-        missing_tickers = set(tickers) - set(valid_tickers)
-        logger.warning(f"No data found for the following tickers: {missing_tickers}")
-
-    # Calculate benchmark yield
-    if benchmark and benchmark in returns.columns:
-        benchmark_returns = returns[benchmark]
-        benchmark_returns = benchmark_returns.dropna()
-    else:
-        logger.warning(f"Benchmark {benchmark} is missing from the return data.")
-        benchmark_returns = pd.Series(dtype=float)
-
-    return close_prices, returns, valid_tickers, benchmark_returns, prices_data
 
 def run(data_fetcher, portfolio_manager):
     """

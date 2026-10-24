@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirna
 from src.utils.calculations import PortfolioAnalytics
 from src.utils.risk_management import RiskManagement
 from src.utils.visualization import PortfolioVisualization
+from src.portfolio_templates import PORTFOLIO_TEMPLATES
 
 def run(data_fetcher, portfolio_manager):
     """
@@ -146,7 +147,7 @@ def create_portfolio_manually(data_fetcher, portfolio_manager):
             except Exception as e:
                 st.error(f"Error creating portfolio: {e}")
 
-    elif input_method == "Step by step addition":
+    elif input_method == "Step-by-step adding":
         # Create or get a list of assets from the state
         if 'stepwise_assets' not in st.session_state:
             st.session_state.stepwise_assets = []
@@ -436,95 +437,20 @@ def create_portfolio_from_template(data_fetcher, portfolio_manager):
     portfolio_name = st.text_input("Portfolio name", key="template_portfolio_name")
     portfolio_description = st.text_area("Description (optional)", key="template_description")
 
-    # List of templates
-    templates = {
-        "S&P 500 Top 10": {
-            "description": "The 10 Largest Companies in the S&P 500 Index",
-            "assets": [
-                {"ticker": "AAPL", "weight": 0.20, "name": "Apple Inc.", "sector": "Technology"},
-                {"ticker": "MSFT", "weight": 0.18, "name": "Microsoft Corporation", "sector": "Technology"},
-                {"ticker": "AMZN", "weight": 0.12, "name": "Amazon.com Inc.", "sector": "Consumer Discretionary"},
-                {"ticker": "NVDA", "weight": 0.10, "name": "NVIDIA Corporation", "sector": "Technology"},
-                {"ticker": "GOOGL", "weight": 0.09, "name": "Alphabet Inc. Class A",
-                 "sector": "Communication Services"},
-                {"ticker": "META", "weight": 0.08, "name": "Meta Platforms Inc.", "sector": "Communication Services"},
-                {"ticker": "GOOG", "weight": 0.07, "name": "Alphabet Inc. Class C", "sector": "Communication Services"},
-                {"ticker": "BRK.B", "weight": 0.06, "name": "Berkshire Hathaway Inc. Class B", "sector": "Financials"},
-                {"ticker": "TSLA", "weight": 0.05, "name": "Tesla, Inc.", "sector": "Consumer Discretionary"},
-                {"ticker": "UNH", "weight": 0.05, "name": "UnitedHealth Group Incorporated", "sector": "Healthcare"}
-            ]
-        },
-        "Classic 60/40": {
-            "description": "Classic allocation: 60% stocks, 40% bonds",
-            "assets": [
-                {"ticker": "VOO", "weight": 0.40, "name": "Vanguard S&P 500 ETF", "sector": "Equities",
-                 "asset_class": "ETF"},
-                {"ticker": "VEA", "weight": 0.20, "name": "Vanguard FTSE Developed Markets ETF", "sector": "Equities",
-                 "asset_class": "ETF"},
-                {"ticker": "BND", "weight": 0.30, "name": "Vanguard Total Bond Market ETF", "sector": "Fixed Income",
-                 "asset_class": "ETF"},
-                {"ticker": "BNDX", "weight": 0.10, "name": "Vanguard Total International Bond ETF",
-                 "sector": "Fixed Income", "asset_class": "ETF"}
-            ]
-        },
-        "Portfolio of constant weights": {
-            "description": "Even distribution between asset classes",
-            "assets": [
-                {"ticker": "VTI", "weight": 0.25, "name": "Vanguard Total Stock Market ETF", "sector": "Equities",
-                 "asset_class": "ETF"},
-                {"ticker": "TLT", "weight": 0.25, "name": "iShares 20+ Year Treasury Bond ETF",
-                 "sector": "Fixed Income", "asset_class": "ETF"},
-                {"ticker": "GLD", "weight": 0.25, "name": "SPDR Gold Shares", "sector": "Commodities",
-                 "asset_class": "ETF"},
-                {"ticker": "IEF", "weight": 0.25, "name": "iShares 7-10 Year Treasury Bond ETF",
-                 "sector": "Fixed Income", "asset_class": "ETF"}
-            ]
-        },
-        "Dividend portfolio": {
-            "description": "A portfolio focused on stable dividends",
-            "assets": [
-                {"ticker": "VYM", "weight": 0.20, "name": "Vanguard High Dividend Yield ETF", "sector": "Equities",
-                 "asset_class": "ETF"},
-                {"ticker": "SCHD", "weight": 0.20, "name": "Schwab US Dividend Equity ETF", "sector": "Equities",
-                 "asset_class": "ETF"},
-                {"ticker": "PG", "weight": 0.10, "name": "Procter & Gamble Co", "sector": "Consumer Staples"},
-                {"ticker": "JNJ", "weight": 0.10, "name": "Johnson & Johnson", "sector": "Healthcare"},
-                {"ticker": "KO", "weight": 0.10, "name": "Coca-Cola Co", "sector": "Consumer Staples"},
-                {"ticker": "PEP", "weight": 0.10, "name": "PepsiCo, Inc.", "sector": "Consumer Staples"},
-                {"ticker": "MCD", "weight": 0.10, "name": "McDonald's Corp", "sector": "Consumer Discretionary"},
-                {"ticker": "MMM", "weight": 0.10, "name": "3M Co", "sector": "Industrials"}
-            ]
-        },
-        "Technology portfolio": {
-            "description": "Portfolio focused on the technology sector",
-            "assets": [
-                {"ticker": "AAPL", "weight": 0.15, "name": "Apple Inc.", "sector": "Technology"},
-                {"ticker": "MSFT", "weight": 0.15, "name": "Microsoft Corporation", "sector": "Technology"},
-                {"ticker": "AMZN", "weight": 0.10, "name": "Amazon.com Inc.", "sector": "Consumer Discretionary"},
-                {"ticker": "NVDA", "weight": 0.10, "name": "NVIDIA Corporation", "sector": "Technology"},
-                {"ticker": "GOOGL", "weight": 0.10, "name": "Alphabet Inc. Class A",
-                 "sector": "Communication Services"},
-                {"ticker": "META", "weight": 0.10, "name": "Meta Platforms Inc.", "sector": "Communication Services"},
-                {"ticker": "TSLA", "weight": 0.10, "name": "Tesla, Inc.", "sector": "Consumer Discretionary"},
-                {"ticker": "ADBE", "weight": 0.07, "name": "Adobe Inc.", "sector": "Technology"},
-                {"ticker": "CRM", "weight": 0.07, "name": "Salesforce, Inc.", "sector": "Technology"},
-                {"ticker": "PYPL", "weight": 0.06, "name": "PayPal Holdings, Inc.", "sector": "Financials"}
-            ]
-        }
-    }
+    template_ids = list(PORTFOLIO_TEMPLATES.keys())
 
     # Select template
     selected_template = st.selectbox(
         "Select a portfolio template",
-        list(templates.keys()),
-        format_func=lambda x: f"{x} - {templates[x]['description']}",
-        key="template_selection"
+        template_ids,
+        format_func=lambda x: f"{PORTFOLIO_TEMPLATES[x]['title']} — {PORTFOLIO_TEMPLATES[x]['description']}",
+        key="template_selection",
     )
 
     if selected_template:
-        template = templates[selected_template]
+        template = PORTFOLIO_TEMPLATES[selected_template]
 
-        st.subheader(f"Sample: {selected_template}")
+        st.subheader(f"Sample: {template['title']}")
         st.write(template["description"])
 
         # Display the composition of the template
@@ -565,7 +491,7 @@ def create_portfolio_from_template(data_fetcher, portfolio_manager):
 
                     portfolio_data = {
                         'name': portfolio_name,
-                        'description': portfolio_description or template['description'],
+                        'description': portfolio_description or template.get('description', ''),
                         'created': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'assets': assets
