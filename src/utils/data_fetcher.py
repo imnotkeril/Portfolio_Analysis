@@ -1265,6 +1265,7 @@ class PortfolioDataManager:
         if filename is None:
             filename = self._sanitize_filename(portfolio_data['name'])
 
+        self._check_storage_name(f"{filename}.json")
         file_path = self.storage_dir / f"{filename}.json"
 
         try:
@@ -1282,6 +1283,13 @@ class PortfolioDataManager:
             logger.error(f"Error saving portfolio: {e}")
             raise
 
+    def _check_storage_name(self, filename: str) -> None:
+        """Reject names that could escape the portfolio storage directory."""
+        if (not filename or '/' in filename or '\\' in filename or chr(0) in filename
+                or filename in ('.', '..') or Path(filename).name != filename
+                or (self.storage_dir / filename).resolve().parent != self.storage_dir.resolve()):
+            raise ValueError("Invalid portfolio name")
+
     def load_portfolio(self, filename: str) -> Dict:
         """
         Loading portfolio data from file
@@ -1296,6 +1304,7 @@ class PortfolioDataManager:
         if not filename.endswith('.json'):
             filename += '.json'
 
+        self._check_storage_name(filename)
         file_path = self.storage_dir / filename
 
         if not file_path.exists():
@@ -1334,7 +1343,7 @@ class PortfolioDataManager:
                     continue
 
         if not file_path.exists():
-            raise FileNotFoundError(f"Portfolio file not found: {file_path}")
+            raise FileNotFoundError("Portfolio not found")
 
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -1393,6 +1402,7 @@ class PortfolioDataManager:
         if not filename.endswith('.json'):
             filename += '.json'
 
+        self._check_storage_name(filename)
         file_path = self.storage_dir / filename
 
         if not file_path.exists():

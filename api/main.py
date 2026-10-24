@@ -4,7 +4,10 @@ Run from repo root: uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 """
 from __future__ import annotations
 
+import hmac
 import io
+import logging
+import os
 import re
 import sys
 import tempfile
@@ -18,7 +21,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 import pandas as pd
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -45,14 +48,41 @@ if config.ALPHA_VANTAGE_API_KEY:
 
 portfolio_manager = PortfolioDataManager(data_fetcher, storage_dir=str(config.PORTFOLIO_DIR))
 
-app = FastAPI(title="Portfolio Analysis API", version="1.0.0")
+logger = logging.getLogger("portfolio_api")
+
+# Security settings (all optional, read from the environment)
+API_KEY = os.getenv("API_KEY", "").strip()
+CORS_ORIGINS = [
+    o.strip()
+    for o in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+    if o.strip() and o.strip() != "*"
+]
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(2 * 1024 * 1024)))
+
+
+def require_api_key(request: Request, x_api_key: Optional[str] = Header(default=None)) -> None:
+    """Reject requests without a valid X-API-Key when API_KEY is configured (/health is public)."""
+    if not API_KEY or request.url.path == "/health" or request.method == "OPTIONS":
+        return
+    if not x_api_key or not hmac.compare_digest(x_api_key.encode(), API_KEY.encode()):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+
+app = FastAPI(
+    title="Portfolio Analysis API",
+    version="1.0.0",
+    dependencies=[Depends(require_api_key)],
+)
+
+if not API_KEY:
+    logger.warning("API_KEY is not set: API authentication is disabled. Do not expose this API publicly.")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-API-Key"],
 )
 
 
@@ -163,13 +193,30 @@ def _sanitize_stem(name: str) -> str:
     return s or "portfolio"
 
 
+def _load_or_404(portfolio_id: str) -> Dict[str, Any]:
+    """Load a portfolio; invalid id -> 400, missing -> 404 (never leaks server paths)."""
+    try:
+        return portfolio_manager.load_portfolio(portfolio_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid portfolio id") from None
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Portfolio not found") from None
+
+
+async def _read_upload(file: UploadFile) -> bytes:
+    raw = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES} bytes)")
+    return raw
+
+
 def _portfolio_name_exists(name: str) -> bool:
     return any(p.get("name") == name for p in portfolio_manager.list_portfolios())
 
 
 def _resolve_universe(body: AnalysisRequest | TimeseriesRequest) -> tuple[List[str], Dict[str, float]]:
     if body.portfolio_id:
-        data = portfolio_manager.load_portfolio(body.portfolio_id)
+        data = _load_or_404(body.portfolio_id)
         tickers = [a["ticker"] for a in data["assets"]]
         weights = {a["ticker"]: float(a["weight"]) for a in data["assets"]}
         return tickers, weights
@@ -342,11 +389,11 @@ def portfolios_from_template(body: FromTemplateRequest) -> Dict[str, Any]:
 async def portfolios_preview_csv(file: UploadFile = File(...)) -> Dict[str, Any]:
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Upload a .csv file")
-    raw = await file.read()
+    raw = await _read_upload(file)
     try:
         df = pd.read_csv(io.BytesIO(raw))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid CSV: {e}") from e
+        raise HTTPException(status_code=400, detail="Invalid CSV file") from e
     cols = list(df.columns)
     has_ticker = "ticker" in cols
     preview = df.head(10).to_dict(orient="records")
@@ -364,7 +411,7 @@ async def portfolios_import_csv(
         raise HTTPException(status_code=409, detail="A portfolio with this name already exists")
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Upload a .csv file")
-    raw = await file.read()
+    raw = await _read_upload(file)
     tmp_path: Optional[str] = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
@@ -373,8 +420,11 @@ async def portfolios_import_csv(
         portfolio = portfolio_manager.import_from_csv(tmp_path, portfolio_name.strip())
         portfolio_manager.save_portfolio(portfolio)
         return jsonable_encoder({"saved": True, "portfolio": portfolio})
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        logger.warning("CSV import failed: %s", e)
+        raise HTTPException(status_code=400, detail="Could not import CSV (check format and ticker column)") from e
     finally:
         if tmp_path:
             try:
@@ -385,14 +435,12 @@ async def portfolios_import_csv(
 
 @app.get("/portfolios/{portfolio_id}/export-csv")
 def portfolios_export_csv(portfolio_id: str) -> FileResponse:
-    try:
-        pdata = portfolio_manager.load_portfolio(portfolio_id)
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+    pdata = _load_or_404(portfolio_id)
     try:
         out_path = portfolio_manager.export_to_csv(pdata)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error("CSV export failed: %s", e)
+        raise HTTPException(status_code=500, detail="Export failed") from e
     fname = f"{_sanitize_stem(pdata['name'])}.csv"
     return FileResponse(out_path, filename=fname, media_type="text/csv")
 
@@ -403,10 +451,7 @@ def portfolios_duplicate(portfolio_id: str, body: DuplicatePortfolioRequest) -> 
         raise HTTPException(status_code=400, detail="new_name is required")
     if _portfolio_name_exists(body.new_name.strip()):
         raise HTTPException(status_code=409, detail="A portfolio with this name already exists")
-    try:
-        pdata = portfolio_manager.load_portfolio(portfolio_id)
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+    pdata = _load_or_404(portfolio_id)
     pdata["name"] = body.new_name.strip()
     pdata["created"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     pdata["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -416,10 +461,7 @@ def portfolios_duplicate(portfolio_id: str, body: DuplicatePortfolioRequest) -> 
 
 @app.get("/portfolios/{portfolio_id}")
 def get_portfolio(portfolio_id: str) -> Dict[str, Any]:
-    try:
-        return portfolio_manager.load_portfolio(portfolio_id)
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+    return _load_or_404(portfolio_id)
 
 
 @app.post("/portfolios")
@@ -433,13 +475,19 @@ def create_portfolio(payload: PortfolioPayload) -> Dict[str, Any]:
 def update_portfolio(portfolio_id: str, payload: PortfolioPayload) -> Dict[str, Any]:
     data = payload.model_dump()
     stem = _sanitize_stem(portfolio_id)
-    path = portfolio_manager.save_portfolio(data, filename=stem)
+    try:
+        path = portfolio_manager.save_portfolio(data, filename=stem)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid portfolio id") from None
     return {"saved": True, "path": path}
 
 
 @app.delete("/portfolios/{portfolio_id}")
 def delete_portfolio(portfolio_id: str) -> Dict[str, bool]:
-    ok = portfolio_manager.delete_portfolio(portfolio_id)
+    try:
+        ok = portfolio_manager.delete_portfolio(portfolio_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid portfolio id") from None
     if not ok:
         raise HTTPException(status_code=404, detail="Portfolio not found")
     return {"deleted": True}
@@ -506,7 +554,7 @@ def analysis_correlation(body: CorrelationRequest) -> Dict[str, Any]:
 @app.post("/optimization/run")
 def optimization_run(body: OptimizationRequest) -> Dict[str, Any]:
     if body.portfolio_id:
-        pdata = portfolio_manager.load_portfolio(body.portfolio_id)
+        pdata = _load_or_404(body.portfolio_id)
         tickers = [a["ticker"] for a in pdata["assets"]]
     elif body.tickers:
         tickers = list(body.tickers)
