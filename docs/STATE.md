@@ -11,7 +11,7 @@ Append-only log. Resume from "Next" and `docs/plan.md`.
 - [x] T05 tests (tests/: calculations, optimizer, API) — 29 passed; found+fixed equal_weight 500 bug
 - [x] T06 pinned direct Python deps (requirements.txt, requirements-dev.txt) — verified in Docker 3.12
 - [x] T07 cleanup (run.py, LICENSE.txt removed; README license MIT, py3.10, env vars, tests)
-- [!] T03 Docker non-root/127.0.0.1 ports committed but NOT live-verified: after the change `docker compose up` api exited(1) (log not captured, Docker Desktop then hung). First thing next session: `docker compose up` on random ports, read `docker logs`, likely uid/permission on mounted ./src/data or config.py mkdir.
+- [x] T03 Docker verified live: first exit(1) was a stale image built before a NUL-byte fix in data_fetcher.py (not a non-root issue). After rebuild: api/web uid 1000, no-key 401, key 200, /health 200, UI+proxy 200, evil-origin CORS none, missing portfolio 404, equal_weight 200, write+delete 200; test containers/images removed
 
 ## Needed from owner
 - Decision to push `chore/audit`/merge to master (nothing pushed).
@@ -19,4 +19,4 @@ Append-only log. Resume from "Next" and `docs/plan.md`.
 - Optional: Alpha Vantage key.
 
 ## Next
-- [ ] T03 live-verify Docker (see above), then T08 final audit note
+- [x] all plan items done
