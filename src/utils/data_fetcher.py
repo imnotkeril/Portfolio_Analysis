@@ -598,8 +598,7 @@ class DataFetcher:
                         start=start_date,
                         end=end_date,
                         interval=interval,
-                        progress=False,
-                        show_errors=False
+                        progress=False
                     )
 
                 if data is None or data.empty:
@@ -1104,8 +1103,7 @@ class DataFetcher:
                         end=end_date,
                         interval='1d',
                         group_by='ticker',
-                        progress=False,
-                        show_errors=False
+                        progress=False
                     )
 
                     for corrected_ticker, original_ticker in download_mapping.items():
