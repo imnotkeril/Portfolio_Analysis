@@ -170,7 +170,14 @@ Then open http://localhost:3000 (UI) and http://localhost:8000/docs (OpenAPI). P
 
 Windows shortcut: double-click `start-docker.bat` from the project folder.
 
-Optional: set `ALPHA_VANTAGE_API_KEY` in a `.env` file next to `docker-compose.yml` or in your environment.
+Ports are bound to `127.0.0.1` only. Optional settings go in a `.env` file next to `docker-compose.yml` (see `.env.example`):
+
+- `ALPHA_VANTAGE_API_KEY` - extra market data (optional)
+- `API_KEY` - if set, the API requires an `X-API-Key` header (the web container forwards it server-side). Set it before exposing anything beyond localhost, and put a TLS reverse proxy in front.
+- `CORS_ORIGINS` - comma-separated allowed browser origins (default: localhost:3000)
+- `MAX_UPLOAD_BYTES` - CSV upload limit (default 2 MB)
+
+The containers run as a non-root user (uid 1000); on Linux make `./src/data` writable for that uid.
 
 ## Getting Started Guide
 
@@ -215,16 +222,25 @@ Additional specialized capabilities include:
 ## Development
 
 ### Prerequisites
-- Python 3.8 or higher
+- Python 3.10 or higher (Docker image uses 3.12)
 - Knowledge of pandas, numpy, and financial concepts
 - API key for Alpha Vantage (optional for enhanced data access)
+
+### Tests
+
+```
+pip install -r requirements-dev.txt
+python -m pytest tests -q
+```
+
+Tests are offline (synthetic prices, temporary portfolio storage).
 
 ### Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is available for private use only.
+Released under the MIT License (see `LICENSE`).
 
 ## Acknowledgments
 
