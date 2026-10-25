@@ -42,7 +42,8 @@ class PortfolioOptimizer:
         elif method == 'maximum_sharpe':
             return PortfolioOptimizer.maximum_sharpe_optimization(returns, risk_free_rate, **kwargs)
         elif method == 'equal_weight':
-            return PortfolioOptimizer.equal_weight_optimization(returns, **kwargs)
+            # Equal weight has no tunable parameters (min/max weight kwargs do not apply)
+            return PortfolioOptimizer.equal_weight_optimization(returns)
         else:
             return {'error': f'Unknown optimization method: {method}'}
 

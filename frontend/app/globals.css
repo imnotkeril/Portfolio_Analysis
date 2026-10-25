@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+:root,
+html[data-theme="dark"] {
+  --wm-bg: #0b0b0b;
+  --wm-bg-elevated: #141414;
+  --wm-card: #1a1a1a;
+  --wm-text: #ffffff;
+  --wm-text-muted: rgba(255, 255, 255, 0.62);
+  --wm-text-dim: rgba(255, 255, 255, 0.38);
+  --wm-accent: #bf9ffb;
+  --wm-accent-glow: rgba(191, 159, 251, 0.45);
+  --wm-green: #74f174;
+  --wm-red: #faa1a4;
+  --wm-orange: #f59e0b;
+  --wm-blue: #90bff9;
+  --wm-border: rgba(255, 255, 255, 0.08);
+  --wm-border-strong: rgba(255, 255, 255, 0.14);
+  --wm-glass: rgba(255, 255, 255, 0.04);
+}
+
+@theme inline {
+  --color-wm-bg: var(--wm-bg);
+  --color-wm-card: var(--wm-card);
+  --color-wm-text: var(--wm-text);
+  --color-wm-muted: var(--wm-text-muted);
+  --color-wm-accent: var(--wm-accent);
+  --color-wm-green: var(--wm-green);
+  --color-wm-red: var(--wm-red);
+  --color-wm-orange: var(--wm-orange);
+  --color-wm-blue: var(--wm-blue);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--wm-bg);
+  color: var(--wm-text);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.glass-panel {
+  background: var(--wm-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--wm-border);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+}
+
+.glow-ring {
+  box-shadow:
+    0 0 40px var(--wm-accent-glow),
+    0 0 80px rgba(191, 159, 251, 0.12);
+}

@@ -1,0 +1,16 @@
+.git
+.idea
+.venv1
+**/__pycache__
+**/*.pyc
+frontend/node_modules
+frontend/.next
+**/.env
+*.md
+**/.env
+.env*
+env
+tests
+docs
+.claude
+.cursor

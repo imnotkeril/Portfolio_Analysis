@@ -76,30 +76,24 @@ This system provides a comprehensive solution for portfolio management, allowing
 ## Project Structure
 
 ```
-PythonProject/
-├── src/                          # Main application code
-│   ├── main.py                   # Streamlit application entry point
-│   ├── config.py                 # Configuration parameters
-│   ├── utils/                    # Utility functions
-│   │   ├── calculations.py       # Portfolio analytics and calculations
-│   │   ├── data_fetcher.py       # Data acquisition from APIs
-│   │   ├── optimization.py       # Portfolio optimization algorithms
-│   │   ├── risk_management.py    # Risk metrics and stress testing
-│   │   ├── visualization.py      # Visualization utilities
-│   │   ├── advanced_visualizations.py # Advanced visualization tools
-│   │   ├── scenario_chaining.py  # Scenario modeling capabilities
-│   │   ├── historical_context.py # Historical market data and analogies
+├── src/
+│   ├── main.py                   # Streamlit entry
+│   ├── config.py
+│   ├── services/                 # Headless logic (API + shared with Streamlit)
+│   │   ├── analysis_service.py
+│   │   └── optimization_service.py
+│   ├── utils/                    # Calculations, data, risk, optimization, viz
 │   ├── pages/                    # Streamlit pages
-│   │   ├── portfolio_analysis.py # Portfolio analysis page
-│   │   ├── portfolio_creation.py # Portfolio creation page
-│   │   ├── portfolio_optimization.py # Portfolio optimization page
-│   ├── data/                     # Data storage directory
-│   │   ├── cache/                # Cached API data
-│   │   ├── portfolios/           # Saved portfolio files
-├── run_app.py                    # Entry point script
-├── setup.py                      # Package installation script
-├── requirements.txt              # Dependencies file
-├── README.md                     # Project documentation
+│   └── data/                     # cache/, portfolios/ (JSON)
+├── api/
+│   └── main.py                   # FastAPI app
+├── frontend/                     # Next.js (Wild Market–styled UI)
+├── Dockerfile.api
+├── Dockerfile.web
+├── docker-compose.yml
+├── run_app.py                    # Launches Streamlit from repo root
+├── requirements.txt
+└── setup.py
 ```
 
 ## Installation
@@ -129,17 +123,61 @@ PythonProject/
 
 ## Usage
 
-Run the application:
+### Streamlit (legacy UI)
+
+From the repository root (with dependencies installed):
+
 ```
 python run_app.py
 ```
 
-Or directly with Streamlit:
+or:
+
 ```
 streamlit run src/main.py
 ```
 
-The application will be available at http://localhost:8501
+Open http://localhost:8501
+
+### Next.js + FastAPI (recommended)
+
+Terminal 1 — API:
+
+```
+python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Terminal 2 — web (from `frontend/`):
+
+```
+cd frontend
+copy .env.example .env.local   # optional; default API is http://localhost:8000
+npm install
+npm run dev
+```
+
+Open http://localhost:3000
+
+Set `NEXT_PUBLIC_API_URL` in `frontend/.env.local` if the API is not on port 8000.
+
+### Docker (one command)
+
+```
+docker compose up --build
+```
+
+Then open http://localhost:3000 (UI) and http://localhost:8000/docs (OpenAPI). Portfolios and cache persist under `./src/data` via a volume.
+
+Windows shortcut: double-click `start-docker.bat` from the project folder.
+
+Ports are bound to `127.0.0.1` only. Optional settings go in a `.env` file next to `docker-compose.yml` (see `.env.example`):
+
+- `ALPHA_VANTAGE_API_KEY` - extra market data (optional)
+- `API_KEY` - if set, the API requires an `X-API-Key` header (the web container forwards it server-side). Set it before exposing anything beyond localhost, and put a TLS reverse proxy in front.
+- `CORS_ORIGINS` - comma-separated allowed browser origins (default: localhost:3000)
+- `MAX_UPLOAD_BYTES` - CSV upload limit (default 2 MB)
+
+The containers run as a non-root user (uid 1000); on Linux make `./src/data` writable for that uid.
 
 ## Getting Started Guide
 
@@ -184,16 +222,25 @@ Additional specialized capabilities include:
 ## Development
 
 ### Prerequisites
-- Python 3.8 or higher
+- Python 3.10 or higher (Docker image uses 3.12)
 - Knowledge of pandas, numpy, and financial concepts
 - API key for Alpha Vantage (optional for enhanced data access)
+
+### Tests
+
+```
+pip install -r requirements-dev.txt
+python -m pytest tests -q
+```
+
+Tests are offline (synthetic prices, temporary portfolio storage).
 
 ### Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is available for private use only.
+Released under the MIT License (see `LICENSE`).
 
 ## Acknowledgments
 

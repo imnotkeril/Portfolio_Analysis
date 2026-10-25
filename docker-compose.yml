@@ -1,0 +1,33 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      # Localhost only: the API has no user accounts. Set API_KEY and put a TLS proxy in front before exposing it.
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./src/data:/app/src/data
+    environment:
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
+      API_KEY: ${API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-2097152}
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    environment:
+      # Server-side proxy target (browser uses /api/proxy -> Next -> this URL)
+      API_URL: http://api:8000
+      API_KEY: ${API_KEY:-}
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped

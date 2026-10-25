@@ -258,18 +258,18 @@ def show_home_page(data_fetcher, portfolio_manager):
             with col1:
                 if st.button("Create New Portfolio"):
                     st.session_state.current_page = "Portfolio creation"
-                    st.experimental_rerun()
+                    st.rerun()
 
             with col2:
                 if st.button("Analyze Existing Portfolio"):
                     st.session_state.current_page = "Portfolio analysis"
-                    st.experimental_rerun()
+                    st.rerun()
         else:
             st.info("You don't have any portfolios yet. Start by creating your first portfolio.")
 
             if st.button("Create First Portfolio"):
                 st.session_state.current_page = "Portfolio creation"
-                st.experimental_rerun()
+                st.rerun()
 
         st.markdown("---")  # Separator
         add_api_key_section(data_fetcher)

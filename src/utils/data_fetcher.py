@@ -171,6 +171,15 @@ class DataFetcher:
         Returns:
             Dictionary with information about the company
         """
+        if str(ticker).strip().upper() == 'CASH':
+            return {
+                'symbol': 'CASH',
+                'name': 'Cash Position',
+                'sector': 'Cash',
+                'type': 'Cash',
+                'currency': 'USD',
+            }
+
         cache_file = self.cache_dir / f"{ticker}_info_{provider}.json"
 
         # Check cache (company information expires after 7 days)
@@ -237,13 +246,15 @@ class DataFetcher:
                 except Exception as e:
                     logger.warning(f"Failed to load search cache: {e}")
 
-        results = []
+        results: List[Dict] = []
 
         try:
             if provider == 'alpha_vantage':
-                results = self._search_alpha_vantage(query, limit)
+                if self.api_keys.get('alpha_vantage'):
+                    results = self._search_alpha_vantage(query, limit)
+                if not results:
+                    results = self._search_alternative(query, limit)
             elif provider == 'yfinance':
-
                 results = self._search_alternative(query, limit)
             else:
                 raise ValueError(f"Unsupported provider for search: {provider}")
@@ -256,11 +267,14 @@ class DataFetcher:
             return results[:limit]
         except Exception as e:
             logger.error(f"Error searching for tickers on request '{query}': {e}")
-
-            # Trying an alternative provider
-            if provider != 'alpha_vantage' and self.api_keys['alpha_vantage']:
+            try:
+                alt = self._search_alternative(query, limit)
+                if alt:
+                    return alt[:limit]
+            except Exception:
+                pass
+            if provider != 'alpha_vantage' and self.api_keys.get('alpha_vantage'):
                 return self.search_tickers(query, limit, 'alpha_vantage')
-
             return []
 
     def validate_tickers(self, tickers: List[str]) -> Tuple[List[str], List[str]]:
@@ -284,6 +298,10 @@ class DataFetcher:
         invalid_tickers = []
 
         for ticker in tickers:
+            if str(ticker).strip().upper() == 'CASH':
+                valid_tickers.append(ticker)
+                continue
+
             if ticker in popular_tickers:
                 valid_tickers.append(ticker)
                 continue
@@ -580,8 +598,7 @@ class DataFetcher:
                         start=start_date,
                         end=end_date,
                         interval=interval,
-                        progress=False,
-                        show_errors=False
+                        progress=False
                     )
 
                 if data is None or data.empty:
@@ -1086,8 +1103,7 @@ class DataFetcher:
                         end=end_date,
                         interval='1d',
                         group_by='ticker',
-                        progress=False,
-                        show_errors=False
+                        progress=False
                     )
 
                     for corrected_ticker, original_ticker in download_mapping.items():
@@ -1209,6 +1225,26 @@ class PortfolioDataManager:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Initialized PortfolioDataManager with storage in {self.storage_dir}")
 
+    @staticmethod
+    def _ensure_cash_row(portfolio_data: Dict) -> None:
+        """Reserve a cash leg at 0% weight when missing (not renormalized with equities)."""
+        assets = portfolio_data.get('assets')
+        if not assets:
+            return
+        for a in assets:
+            if str(a.get('ticker', '')).strip().upper() == 'CASH':
+                a.setdefault('name', 'Cash Position')
+                a.setdefault('sector', 'Cash')
+                return
+        assets.append(
+            {
+                'ticker': 'CASH',
+                'weight': 0.0,
+                'name': 'Cash Position',
+                'sector': 'Cash',
+            }
+        )
+
     def save_portfolio(self, portfolio_data: Dict, filename: Optional[str] = None) -> str:
         """
         Saving portfolio data to a file
@@ -1227,9 +1263,11 @@ class PortfolioDataManager:
         if filename is None:
             filename = self._sanitize_filename(portfolio_data['name'])
 
+        self._check_storage_name(f"{filename}.json")
         file_path = self.storage_dir / f"{filename}.json"
 
         try:
+            self._ensure_cash_row(portfolio_data)
 
             if 'last_updated' not in portfolio_data:
                 portfolio_data['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -1242,6 +1280,13 @@ class PortfolioDataManager:
         except Exception as e:
             logger.error(f"Error saving portfolio: {e}")
             raise
+
+    def _check_storage_name(self, filename: str) -> None:
+        """Reject names that could escape the portfolio storage directory."""
+        if (not filename or '/' in filename or '\\' in filename or chr(0) in filename
+                or filename in ('.', '..') or Path(filename).name != filename
+                or (self.storage_dir / filename).resolve().parent != self.storage_dir.resolve()):
+            raise ValueError("Invalid portfolio name")
 
     def load_portfolio(self, filename: str) -> Dict:
         """
@@ -1257,6 +1302,7 @@ class PortfolioDataManager:
         if not filename.endswith('.json'):
             filename += '.json'
 
+        self._check_storage_name(filename)
         file_path = self.storage_dir / filename
 
         if not file_path.exists():
@@ -1295,7 +1341,7 @@ class PortfolioDataManager:
                     continue
 
         if not file_path.exists():
-            raise FileNotFoundError(f"Portfolio file not found: {file_path}")
+            raise FileNotFoundError("Portfolio not found")
 
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -1354,6 +1400,7 @@ class PortfolioDataManager:
         if not filename.endswith('.json'):
             filename += '.json'
 
+        self._check_storage_name(filename)
         file_path = self.storage_dir / filename
 
         if not file_path.exists():
@@ -1591,6 +1638,10 @@ class PortfolioDataManager:
 
         for asset in portfolio_data['assets']:
             ticker = asset['ticker']
+            if str(ticker).strip().upper() == 'CASH':
+                asset['current_price'] = 1.0
+                asset['price_date'] = end_date
+                continue
 
             if ticker in price_data and not price_data[ticker].empty:
 
@@ -1680,6 +1731,13 @@ class PortfolioDataManager:
 
         for asset in portfolio_data['assets']:
             try:
+                t = str(asset.get('ticker', '')).strip().upper()
+                if t == 'CASH':
+                    asset.setdefault('name', 'Cash Position')
+                    asset.setdefault('sector', 'Cash')
+                    asset.setdefault('asset_class', 'Cash')
+                    continue
+
                 info = self.data_fetcher.get_company_info(asset['ticker'])
 
                 if info:
